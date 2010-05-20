@@ -15,10 +15,12 @@ the sample code.
 
 ##############################################################################
 #
-# sliderepl - 0.12
-#   Copyright (c) Jason Kirtland <jek@discorporate.us>
+# sage_sliderepl - 0.12.1
+#   Copyright (c) 2008-2010 Jason Kirtland <jek@discorporate.us> and
+#                           Christopher Swenson <chris@caswenson.com>
+#   sage_sliderepl lives at http://github.com/swenson/sage_sliderepl
 #   sliderepl lives at http://discorporate.us/projects/sliderepl
-#   sliderepl is licensed under the MIT License:
+#   sage_sliderepl and sliderepl and licensed under the MIT License:
 #   http://www.opensource.org/licenses/mit-license.php
 #
 # sliderepl may be textually included in a file that also contains its input
@@ -37,7 +39,13 @@ the sample code.
 # Python session.
 
 environ = globals().copy()
-import code, inspect, itertools, logging, re, sys, traceback
+import code, inspect, itertools, logging, os.path, re, sys, traceback
+try:
+  from sage.misc.preparser import preparse
+  sage_present = True
+except:
+  sage_present = False
+  preparse = lambda x: x
 try:
     import rlcompleter, readline
 except ImportError:
@@ -162,7 +170,8 @@ class Deck(object):
                 self.codeblocks.append((self._pop(), co))
         def _compile(self):
             style = getattr(self, 'no_return', False) and 'exec' or 'single'
-            return code.compile_command(''.join(self._stack), '<input>', style)
+            # preparse here, so that it pretty prints above, but executes in Sage correctly
+            return code.compile_command(preparse(''.join(self._stack)), '<input>', style)
         def _pop(self):
             self._stack.reverse()
             lines = list(itertools.dropwhile(str.isspace, self._stack))
@@ -177,7 +186,13 @@ class Deck(object):
         immediately and the script will exit.  Useful for sanity testing.
         """
         if path is None:
-            path = sys.argv[0]
+            # try to read in the ".sage" file instead of the auto-generated ".py"
+            py_path = sys.argv[0]
+            sage_path = py_path.replace('.py', '.sage')
+            if os.path.exists(sage_path):
+                path = sage_path
+            else:
+                path = py_path
         deck = cls.from_path(path)
         if not deck:
             sys.stderr.write("Aborting: no slides!\n")
@@ -196,6 +211,10 @@ class Deck(object):
         if readline:
             readline.parse_and_bind('tab: complete')
             readline.set_completer(rlcompleter.Completer(environ).complete)
+
+        # ensure that all the Sage goodies are available at the prompt
+        if sage_present:
+          console.push("from sage.all import *")
         console.interact(deck.banner)
         sys.exit(0)
     run = classmethod(run)
@@ -248,6 +267,9 @@ class Deck(object):
                     self._add_history(line)
                     fn(*tokens[1:])
                 return ''
+            else:
+                # if it not a special, we need to run it through Sage
+                line = preparse(line)
         return line
 
     def _add_history(cls, line):
