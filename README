@@ -1,4 +1,4 @@
-This is sage_sliderepl 0.12, a Sage-compatible version of
+This is sage_sliderepl 0.12.1, a Sage-compatible version of
 sliderepl
 
 To run, create a normal slide deck as a .sage file and run it,
